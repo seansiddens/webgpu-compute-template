@@ -1,5 +1,8 @@
 import computeShaderCode from './compute.wgsl';
 
+const VECTOR_SIZE = 1024;
+
+
 async function main() {
     const canvas = document.querySelector('canvas')!;
     const context = canvas.getContext('webgpu');
@@ -20,11 +23,19 @@ async function main() {
         return;
     }
     const device = await adapter.requestDevice();
+    console.log('Max workgroups: %d', device.limits.maxComputeWorkgroupsPerDimension);
+    console.log('Max workgroup size: %d', device.limits.maxComputeWorkgroupSizeX);
 
     // Create buffers
-    const bufferLength = 1024;
-    const aData = new Float32Array([1, 2, 3, 4]);
-    const bData = new Float32Array([1, 1, 1, 1]);
+    const bufferLength = VECTOR_SIZE;
+    const aData = new Float32Array(VECTOR_SIZE);
+    for (let i = 0; i < aData.length; i++) {
+        aData[i] = i;
+    }
+    const bData = new Float32Array(VECTOR_SIZE);
+    for (let i = 0; i < aData.length; i++) {
+        bData[i] = i + 2.0;
+    }
     const resultData = new Float32Array(bufferLength);
 
     const aBuffer = device.createBuffer({
@@ -95,7 +106,10 @@ async function main() {
     device.queue.onSubmittedWorkDone().then(async () => {
         await gpuReadBuffer.mapAsync(GPUMapMode.READ);
         const resultArray = new Float32Array(gpuReadBuffer.getMappedRange());
-        console.log(resultArray);
+        // Check that the output is what is expected.
+        for (let i = 0; i < resultArray.length; i++) {
+            console.assert(resultArray[i] == i + i + 2);
+        }
         gpuReadBuffer.unmap();
     });
 
